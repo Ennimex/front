@@ -263,6 +263,7 @@ const validateForm = () => {
   return isUsernameValid && isPasswordValid && isConfirmPasswordValid && isEmailValid && isPhoneValid;
 };
 
+// ✅ FUNCIÓN ACTUALIZADA CON VALIDACIÓN DE DUPLICADOS
 const handleRegister = async () => {
   if (!validateForm()) {
     message.value = 'Por favor, corrige los errores en el formulario';
@@ -277,6 +278,11 @@ const handleRegister = async () => {
 
   loading.value = true;
   message.value = '';
+
+  // ✅ Limpiar errores previos de duplicados
+  errors.value.username = '';
+  errors.value.email = '';
+  errors.value.phone = '';
 
   try {
     const response = await authService.register(dataToSend);
@@ -296,8 +302,26 @@ const handleRegister = async () => {
       });
     }, 1000);
   } catch (error) {
-    message.value = error.response?.data?.message || 'Error al registrar';
-    messageType.value = 'error';
+    // ✅ MANEJO DE ERRORES DE DUPLICADOS
+    const errorData = error.response?.data;
+    
+    if (errorData?.field) {
+      // Si el backend indica qué campo está duplicado
+      if (errorData.field === 'username') {
+        errors.value.username = errorData.message || 'El usuario ya existe';
+      } else if (errorData.field === 'email') {
+        errors.value.email = errorData.message || 'Este correo electrónico ya está registrado';
+      } else if (errorData.field === 'phone') {
+        errors.value.phone = errorData.message || 'Este número de teléfono ya está registrado';
+      }
+      
+      message.value = errorData.message;
+      messageType.value = 'error';
+    } else {
+      // Error genérico
+      message.value = errorData?.message || 'Error al registrar';
+      messageType.value = 'error';
+    }
   } finally {
     loading.value = false;
   }
