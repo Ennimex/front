@@ -90,7 +90,21 @@
         @verify="handleVerifyOTP"
         @resend="handleResendOTP"
         @expired="handleOTPExpired"
-      />
+      >
+        <!-- ✅ Agregar checkbox de recordar dispositivo -->
+        <template #extra-content>
+          <div class="remember-device-container">
+            <label class="remember-device-label">
+              <input 
+                type="checkbox" 
+                v-model="rememberDevice"
+                class="remember-checkbox"
+              />
+              <span>Recordar este dispositivo por 30 días</span>
+            </label>
+          </div>
+        </template>
+      </VerificationTimer>
 
       <!-- Formulario OTP simple (para aplicación autenticadora) -->
       <form v-else-if="showOTPInput && mfaMethod === 'app'" @submit.prevent="handleVerifyOTPApp">
@@ -110,6 +124,18 @@
             inputmode="numeric"
             pattern="[0-9]*"
           />
+        </div>
+
+        <!-- ✅ Checkbox de recordar dispositivo para app -->
+        <div class="remember-device-container">
+          <label class="remember-device-label">
+            <input 
+              type="checkbox" 
+              v-model="rememberDevice"
+              class="remember-checkbox"
+            />
+            <span>Recordar este dispositivo por 30 días</span>
+          </label>
         </div>
 
         <button type="submit" class="btn-primary" :disabled="loading">
@@ -159,6 +185,9 @@ const loading = ref(false);
 const message = ref('');
 const messageType = ref('');
 
+// ✅ Estado para recordar dispositivo
+const rememberDevice = ref(false);
+
 const validateUsername = () => {
   if (!credentials.value.username.trim()) {
     errors.value.username = 'El usuario es requerido';
@@ -184,7 +213,7 @@ const mfaMethod = ref('');
 const userId = ref(null);
 const otpCode = ref('');
 const availableMFAMethods = ref([]);
-const userContact = ref(''); // Para mostrar email o teléfono
+const userContact = ref('');
 
 const mfaMethodText = computed(() => {
   const methods = {
@@ -216,33 +245,39 @@ const handleLogin = async () => {
     loading.value = true;
     message.value = '';
     
+    console.log('🔐 Iniciando login...');
+    
+    // ✅ authService.login ahora envía automáticamente el deviceId si existe
     const response = await authService.login(credentials.value);
-    console.log('Respuesta del login:', response);
+    console.log('📥 Respuesta del login:', response);
+
+    // ✅ Si el dispositivo es confiable, redirigir directamente
+    if (!response.requiresMFA) {
+      console.log('✅ Dispositivo confiable - Redirigiendo al dashboard');
+      await router.push('/dashboard');
+      return;
+    }
 
     if (!response.userId || !response.mfaMethods) {
       throw new Error('Respuesta incompleta del servidor');
     }
 
-    // Guardamos la información del usuario
     userId.value = response.userId;
     availableMFAMethods.value = response.mfaMethods;
     
-    // Guardamos el contacto del usuario si viene en la respuesta
     if (response.email) userContact.value = response.email;
     if (response.phone) userContact.value = response.phone;
 
-    // Si el usuario no tiene métodos MFA configurados
     if (!response.mfaMethods.length) {
       throw new Error('No tienes métodos de autenticación configurados. Por favor, configura al menos uno en tu perfil.');
     }
 
-    // Mostramos los métodos de verificación disponibles
     requiresMFA.value = true;
     showMFASelection.value = true;
     message.value = 'Por favor, selecciona un método de verificación';
     messageType.value = 'info';
   } catch (error) {
-    console.error('Error de inicio de sesión:', error);
+    console.error('❌ Error de inicio de sesión:', error);
     if (error.response?.data?.message) {
       message.value = error.response.data.message;
     } else if (error.message) {
@@ -266,22 +301,21 @@ const selectMFAMethod = async (method) => {
   try {
     loading.value = true;
     message.value = '';
-    console.log('Solicitando OTP para método:', method);
+    console.log('📤 Solicitando OTP para método:', method);
     
     const response = await authService.requestOTP(userId.value, method);
-    console.log('Respuesta de solicitud OTP:', response);
+    console.log('📥 Respuesta de solicitud OTP:', response);
     
     mfaMethod.value = method;
     showMFASelection.value = false;
     showOTPInput.value = true;
     
-    // Para email y SMS, el componente VerificationTimer manejará el mensaje
-    // Para app, mostramos mensaje aquí
     if (method === 'app') {
       message.value = 'Por favor, ingresa el código de tu aplicación autenticador';
       messageType.value = 'info';
     }
   } catch (error) {
+    console.error('❌ Error al solicitar OTP:', error);
     message.value = error.response?.data?.message || 'Error al solicitar el código';
     messageType.value = 'error';
   } finally {
@@ -295,6 +329,7 @@ const backToMethodSelection = () => {
   otpCode.value = '';
   mfaMethod.value = '';
   message.value = '';
+  rememberDevice.value = false; // ✅ Resetear checkbox
 };
 
 const resetForm = () => {
@@ -307,9 +342,10 @@ const resetForm = () => {
   message.value = '';
   credentials.value = { username: '', password: '' };
   showPassword.value = false;
+  rememberDevice.value = false; // ✅ Resetear checkbox
 };
 
-// Manejo de verificación OTP desde el componente VerificationTimer
+// ✅ Manejo de verificación OTP con opción de recordar dispositivo (CORREGIDO)
 const handleVerifyOTP = async (code) => {
   if (!userId.value || !mfaMethod.value) {
     message.value = 'Error en la verificación: información incompleta';
@@ -320,34 +356,58 @@ const handleVerifyOTP = async (code) => {
   try {
     loading.value = true;
     
-    console.log('Enviando verificación OTP:', {
+    console.log('📤 Enviando verificación OTP:', {
       userId: userId.value,
-      method: mfaMethod.value
+      method: mfaMethod.value,
+      rememberDevice: rememberDevice.value,
+      codeLength: code?.length
     });
 
     const response = await authService.verifyOTP({
       userId: userId.value,
       otp: code,
-      method: mfaMethod.value
+      method: mfaMethod.value,
+      rememberDevice: rememberDevice.value
     });
+    
+    console.log('📥 Respuesta de verificación OTP:', response);
     
     if (!response.token) {
       throw new Error('No se recibió el token de autenticación');
     }
 
-    localStorage.setItem('token', response.token);
+    // ✅ Verificar que el token se guardó correctamente
+    const savedToken = localStorage.getItem('token');
+    console.log('✅ Token guardado:', savedToken ? 'Sí' : 'No');
     
+    // ✅ Verificar si se guardó el deviceId
+    if (rememberDevice.value) {
+      const savedDeviceId = localStorage.getItem('deviceId');
+      console.log('✅ DeviceId guardado:', savedDeviceId ? savedDeviceId.substring(0, 10) + '...' : 'No');
+    }
+    
+    // ✅ Pequeño delay para asegurar que todo se guardó
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log('🚀 Redirigiendo al dashboard...');
     await router.push('/dashboard');
+    
   } catch (error) {
-    console.error('Error en la verificación OTP:', error);
+    console.error('❌ Error en la verificación OTP:', error);
     const errorMsg = error.response?.data?.message || error.message || 'Código OTP inválido. Por favor, intenta nuevamente.';
-    alert(errorMsg); // Mostrar error al usuario
+    
+    // Mostrar el error en la UI
+    message.value = errorMsg;
+    messageType.value = 'error';
+    
+    // También mostrar alerta para asegurar que el usuario lo vea
+    alert(errorMsg);
   } finally {
     loading.value = false;
   }
 };
 
-// Manejo de verificación OTP para la app autenticadora (sin contador)
+// Manejo de verificación OTP para la app autenticadora
 const handleVerifyOTPApp = async () => {
   if (!otpCode.value || otpCode.value.length !== 6 || !/^\d+$/.test(otpCode.value)) {
     message.value = 'Por favor, ingresa un código válido de 6 dígitos';
@@ -361,17 +421,18 @@ const handleVerifyOTPApp = async () => {
 // Reenviar código OTP
 const handleResendOTP = async () => {
   try {
+    console.log('🔄 Reenviando código OTP...');
     await authService.requestOTP(userId.value, mfaMethod.value);
-    console.log('Código reenviado exitosamente');
+    console.log('✅ Código reenviado exitosamente');
   } catch (error) {
-    console.error('Error al reenviar código:', error);
+    console.error('❌ Error al reenviar código:', error);
     alert('Error al reenviar el código');
   }
 };
 
 // Código OTP expirado
 const handleOTPExpired = () => {
-  console.log('El código ha expirado');
+  console.log('⏰ El código ha expirado');
   alert('El código ha expirado. Por favor, solicita uno nuevo.');
 };
 </script>
@@ -513,6 +574,40 @@ input:focus {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ✅ ESTILOS PARA CHECKBOX DE RECORDAR DISPOSITIVO */
+.remember-device-container {
+  margin: 20px 0;
+  padding: 12px;
+  background: #f8f9ff;
+  border-radius: 8px;
+  border: 1px solid #e0e7ff;
+}
+
+.remember-device-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.remember-device-label span {
+  color: #555;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.remember-device-label:hover span {
+  color: #667eea;
 }
 
 /* Contenedor del enlace "¿Olvidaste tu contraseña?" */
@@ -690,7 +785,6 @@ input:focus {
   border: 1px solid #bee5eb;
 }
 
-/* Contenedor de enlaces de autenticación */
 .auth-links {
   margin-top: 25px;
   padding-top: 20px;
@@ -727,7 +821,6 @@ input:focus {
   width: 100%;
 }
 
-/* Responsive */
 @media (max-width: 480px) {
   .login-card {
     padding: 30px 20px;
@@ -738,6 +831,10 @@ input:focus {
   }
 
   .link {
+    font-size: 13px;
+  }
+  
+  .remember-device-label span {
     font-size: 13px;
   }
 }
