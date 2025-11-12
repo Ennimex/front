@@ -253,7 +253,34 @@ const handleLogin = async () => {
 
     // ✅ Si el dispositivo es confiable, redirigir directamente
     if (!response.requiresMFA) {
-      console.log('✅ Dispositivo confiable - Redirigiendo al dashboard');
+      console.log('✅ Dispositivo confiable detectado');
+      
+      // ⚠️ CRÍTICO: Guardar el token antes de redirigir
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        console.log('✅ Token guardado para dispositivo confiable');
+        
+        // Verificar que se guardó
+        const savedToken = localStorage.getItem('token');
+        if (savedToken) {
+          console.log('✅ Verificación: Token existe en localStorage');
+        } else {
+          console.error('❌ ERROR: Token no se guardó correctamente');
+          message.value = 'Error al guardar la sesión';
+          messageType.value = 'error';
+          return;
+        }
+      } else {
+        console.error('❌ ERROR: No se recibió token del servidor');
+        message.value = 'Error: No se recibió token del servidor';
+        messageType.value = 'error';
+        return;
+      }
+      
+      // Pequeño delay para asegurar que localStorage se actualice
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('🚀 Redirigiendo al dashboard...');
       await router.push('/dashboard');
       return;
     }
