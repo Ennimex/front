@@ -7,44 +7,55 @@
       <form v-if="!requiresMFA" @submit.prevent="handleLogin">
         <div class="form-group">
           <label>Usuario</label>
-          <input 
-            v-model="credentials.username" 
-            type="text" 
-            required
-            placeholder="Ingresa tu usuario"
-            @blur="validateUsername"
-            :class="{ 'input-error': errors.username }"
-          />
-          <span v-if="errors.username" class="error-text">{{ errors.username }}</span>
+          <div class="input-wrapper">
+            <input 
+              v-model="credentials.username" 
+              type="text" 
+              required
+              placeholder="Ingresa tu usuario"
+              @blur="validateUsername"
+              :class="{ 'input-error': errors.username }"
+            />
+            <span v-if="errors.username" class="error-text">{{ errors.username }}</span>
+          </div>
         </div>
 
         <div class="form-group">
           <label>Contraseña</label>
-          <div class="password-input-container">
-            <input 
-              v-model="credentials.password" 
-              :type="showPassword ? 'text' : 'password'"
-              required
-              placeholder="Ingresa tu contraseña"
-              @blur="validatePassword"
-              :class="{ 'input-error': errors.password }"
-            />
-            <button 
-              type="button" 
-              class="toggle-password"
-              @click="showPassword = !showPassword"
-              :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-            >
-              <Eye v-if="!showPassword" :size="20" />
-              <EyeOff v-else :size="20" />
-            </button>
+          <div class="input-wrapper">
+            <div class="password-input-container">
+              <input 
+                v-model="credentials.password" 
+                :type="showPassword ? 'text' : 'password'"
+                required
+                placeholder="Ingresa tu contraseña"
+                @blur="validatePassword"
+                :class="{ 'input-error': errors.password }"
+              />
+              <button 
+                type="button" 
+                class="toggle-password"
+                @click="showPassword = !showPassword"
+                :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                <Eye v-if="!showPassword" :size="20" />
+                <EyeOff v-else :size="20" />
+              </button>
+            </div>
+            <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
           </div>
-          <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
         </div>
 
         <button type="submit" class="btn-primary" :disabled="loading">
           {{ loading ? 'Ingresando...' : 'Ingresar' }}
         </button>
+        <br>
+        <!-- Link de recuperación de contraseña -->
+        <div class="forgot-password-container">
+          <router-link to="/forgot-password" class="forgot-password-link">
+            ¿Olvidaste tu contraseña?
+          </router-link>
+        </div>
       </form>
 
       <!-- Selección de método MFA -->
@@ -71,11 +82,20 @@
         </button>
       </div>
 
-      <!-- Formulario de OTP -->
-      <form v-else-if="showOTPInput" @submit.prevent="handleVerifyOTP">
+      <!-- Componente de verificación OTP con contador (para email y SMS) -->
+      <VerificationTimer
+        v-else-if="showOTPInput && (mfaMethod === 'email' || mfaMethod === 'sms')"
+        :email="getUserContact"
+        :expiration-minutes="5"
+        @verify="handleVerifyOTP"
+        @resend="handleResendOTP"
+        @expired="handleOTPExpired"
+      />
+
+      <!-- Formulario OTP simple (para aplicación autenticadora) -->
+      <form v-else-if="showOTPInput && mfaMethod === 'app'" @submit.prevent="handleVerifyOTPApp">
         <div class="otp-info">
-          <p v-if="mfaMethod !== 'app'">Se ha enviado un código a tu {{ mfaMethodText }}</p>
-          <p v-else>Ingresa el código de tu aplicación de autenticación</p>
+          <p>Ingresa el código de tu aplicación de autenticación</p>
         </div>
 
         <div class="form-group">
@@ -101,13 +121,16 @@
         </button>
       </form>
 
-      <div v-if="message" :class="['message', messageType]">
+      <div v-if="message && !showOTPInput" :class="['message', messageType]">
         {{ message }}
       </div>
 
-      <router-link to="/register" class="link">
-        ¿No tienes cuenta? Regístrate
-      </router-link>
+      <!-- Enlaces de navegación -->
+      <div v-if="!requiresMFA" class="auth-links">
+        <router-link to="/register" class="link">
+          ¿No tienes cuenta? Regístrate
+        </router-link>
+      </div>
     </div>
   </div>
 </template>
@@ -117,6 +140,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { Eye, EyeOff, Mail, Phone, ShieldCheck } from 'lucide-vue-next';
 import { authService } from '@/services/auth';
+import VerificationTimer from '@/components/VerificationTimer.vue';
 
 const router = useRouter();
 
@@ -160,6 +184,7 @@ const mfaMethod = ref('');
 const userId = ref(null);
 const otpCode = ref('');
 const availableMFAMethods = ref([]);
+const userContact = ref(''); // Para mostrar email o teléfono
 
 const mfaMethodText = computed(() => {
   const methods = {
@@ -168,6 +193,10 @@ const mfaMethodText = computed(() => {
     app: 'aplicación de autenticación'
   };
   return methods[mfaMethod.value] || 'dispositivo';
+});
+
+const getUserContact = computed(() => {
+  return userContact.value || 'tu dispositivo';
 });
 
 const validateLoginForm = () => {
@@ -197,6 +226,10 @@ const handleLogin = async () => {
     // Guardamos la información del usuario
     userId.value = response.userId;
     availableMFAMethods.value = response.mfaMethods;
+    
+    // Guardamos el contacto del usuario si viene en la respuesta
+    if (response.email) userContact.value = response.email;
+    if (response.phone) userContact.value = response.phone;
 
     // Si el usuario no tiene métodos MFA configurados
     if (!response.mfaMethods.length) {
@@ -242,12 +275,11 @@ const selectMFAMethod = async (method) => {
     showMFASelection.value = false;
     showOTPInput.value = true;
     
+    // Para email y SMS, el componente VerificationTimer manejará el mensaje
+    // Para app, mostramos mensaje aquí
     if (method === 'app') {
       message.value = 'Por favor, ingresa el código de tu aplicación autenticador';
       messageType.value = 'info';
-    } else {
-      message.value = `Código enviado a tu ${mfaMethodText.value}`;
-      messageType.value = 'success';
     }
   } catch (error) {
     message.value = error.response?.data?.message || 'Error al solicitar el código';
@@ -277,13 +309,8 @@ const resetForm = () => {
   showPassword.value = false;
 };
 
-const handleVerifyOTP = async () => {
-  if (!otpCode.value || otpCode.value.length !== 6 || !/^\d+$/.test(otpCode.value)) {
-    message.value = 'Por favor, ingresa un código válido de 6 dígitos';
-    messageType.value = 'error';
-    return;
-  }
-
+// Manejo de verificación OTP desde el componente VerificationTimer
+const handleVerifyOTP = async (code) => {
   if (!userId.value || !mfaMethod.value) {
     message.value = 'Error en la verificación: información incompleta';
     messageType.value = 'error';
@@ -292,7 +319,6 @@ const handleVerifyOTP = async () => {
 
   try {
     loading.value = true;
-    message.value = '';
     
     console.log('Enviando verificación OTP:', {
       userId: userId.value,
@@ -301,7 +327,7 @@ const handleVerifyOTP = async () => {
 
     const response = await authService.verifyOTP({
       userId: userId.value,
-      otp: otpCode.value,
+      otp: code,
       method: mfaMethod.value
     });
     
@@ -310,23 +336,43 @@ const handleVerifyOTP = async () => {
     }
 
     localStorage.setItem('token', response.token);
-    message.value = 'Verificación exitosa';
-    messageType.value = 'success';
     
     await router.push('/dashboard');
   } catch (error) {
     console.error('Error en la verificación OTP:', error);
-    if (error.response?.data?.message) {
-      message.value = error.response.data.message;
-    } else if (error.message) {
-      message.value = error.message;
-    } else {
-      message.value = 'Código OTP inválido. Por favor, intenta nuevamente.';
-    }
-    messageType.value = 'error';
+    const errorMsg = error.response?.data?.message || error.message || 'Código OTP inválido. Por favor, intenta nuevamente.';
+    alert(errorMsg); // Mostrar error al usuario
   } finally {
     loading.value = false;
   }
+};
+
+// Manejo de verificación OTP para la app autenticadora (sin contador)
+const handleVerifyOTPApp = async () => {
+  if (!otpCode.value || otpCode.value.length !== 6 || !/^\d+$/.test(otpCode.value)) {
+    message.value = 'Por favor, ingresa un código válido de 6 dígitos';
+    messageType.value = 'error';
+    return;
+  }
+
+  await handleVerifyOTP(otpCode.value);
+};
+
+// Reenviar código OTP
+const handleResendOTP = async () => {
+  try {
+    await authService.requestOTP(userId.value, mfaMethod.value);
+    console.log('Código reenviado exitosamente');
+  } catch (error) {
+    console.error('Error al reenviar código:', error);
+    alert('Error al reenviar el código');
+  }
+};
+
+// Código OTP expirado
+const handleOTPExpired = () => {
+  console.log('El código ha expirado');
+  alert('El código ha expirado. Por favor, solicita uno nuevo.');
 };
 </script>
 
@@ -363,7 +409,7 @@ h3 {
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 25px;
 }
 
 label {
@@ -373,6 +419,12 @@ label {
   font-weight: 500;
 }
 
+.input-wrapper {
+  position: relative;
+  min-height: 46px;
+  padding-bottom: 22px;
+}
+
 input {
   width: 100%;
   padding: 12px;
@@ -380,6 +432,7 @@ input {
   border-radius: 5px;
   font-size: 14px;
   transition: border-color 0.3s;
+  box-sizing: border-box;
 }
 
 .password-input-container {
@@ -406,6 +459,7 @@ input {
   transition: all 0.2s ease;
   color: #555;
   background-color: transparent;
+  z-index: 1;
 }
 
 .toggle-password:hover {
@@ -439,10 +493,62 @@ input:focus {
 }
 
 .error-text {
+  position: absolute;
+  left: 0;
+  bottom: 0;
   color: #dc3545;
-  font-size: 0.875rem;
-  margin-top: 5px;
-  display: block;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 0;
+  padding-top: 2px;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Contenedor del enlace "¿Olvidaste tu contraseña?" */
+.forgot-password-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  margin-top: -10px;
+}
+
+.forgot-password-link {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.forgot-password-link::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: #667eea;
+  transition: width 0.3s ease;
+}
+
+.forgot-password-link:hover {
+  color: #5568d3;
+}
+
+.forgot-password-link:hover::after {
+  width: 100%;
 }
 
 .otp-input {
@@ -584,18 +690,55 @@ input:focus {
   border: 1px solid #bee5eb;
 }
 
-.link {
-  display: block;
+/* Contenedor de enlaces de autenticación */
+.auth-links {
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
   text-align: center;
-  margin-top: 20px;
+}
+
+.link {
+  display: inline-block;
   color: #667eea;
   text-decoration: none;
   font-weight: 500;
-  transition: color 0.2s;
+  font-size: 14px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.link::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: #667eea;
+  transition: width 0.3s ease;
 }
 
 .link:hover {
   color: #5568d3;
-  text-decoration: underline;
+}
+
+.link:hover::after {
+  width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 30px 20px;
+  }
+
+  .forgot-password-link {
+    font-size: 13px;
+  }
+
+  .link {
+    font-size: 13px;
+  }
 }
 </style>

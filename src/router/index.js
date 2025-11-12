@@ -28,7 +28,12 @@ const router = createRouter({
       name: 'dashboard',
       component: () => import('@/views/Dashboard.vue'),
       meta: { requiresAuth: true }
-    }
+    },
+  {
+    path: '/forgot-password',
+    name: 'PasswordRecovery',
+    component: () => import('@/views/PasswordRecovery.vue')
+  }
   ]
 });
 
