@@ -227,9 +227,7 @@ const requestPasswordReset = async () => {
   emailError.value = ''
   
   try {
-    // Ajusta esta URL a tu endpoint del backend
     await authService.forgotPassword(email.value)
-    
     step.value = 'verify'
   } catch (error) {
     console.error('Error al enviar código:', error)
@@ -248,10 +246,7 @@ const requestPasswordReset = async () => {
 const handleVerification = async (code) => {
   loading.value = true
   try {
-    // Ajusta esta URL a tu endpoint del backend
     const response = await authService.verifyResetCode(email.value, code)
-    
-    // Guarda el token de verificación que retorna el backend
     verificationToken.value = response.token
     step.value = 'reset'
   } catch (error) {
@@ -284,7 +279,6 @@ const resetPassword = async () => {
   passwordError.value = ''
   confirmError.value = ''
   
-  // Validaciones
   const isPasswordValid = validatePassword()
   const isConfirmValid = validateConfirmPassword()
   
@@ -292,7 +286,6 @@ const resetPassword = async () => {
 
   loading.value = true
   try {
-    // Ajusta esta URL a tu endpoint del backend
     await authService.resetPassword({
       token: verificationToken.value,
       password: newPassword.value,
@@ -315,13 +308,26 @@ const goToLogin = () => {
 </script>
 
 <style scoped>
+/* Usando variables CSS globales */
 .password-recovery-view {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.password-recovery-view::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  z-index: -1;
 }
 
 .form-container {
@@ -337,25 +343,24 @@ const goToLogin = () => {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
-  color: #667eea;
+  color: var(--primary-color);
 }
 
 .icon-header.success {
-  color: #10b981;
+  color: var(--success-color);
 }
 
 h2 {
   text-align: center;
-  font-size: 28px;
-  font-weight: 700;
-  color: #2d3748;
+  font-size: 1.75rem;
   margin-bottom: 10px;
+  color: var(--text-color);
 }
 
 .subtitle {
   text-align: center;
-  color: #718096;
-  font-size: 14px;
+  color: var(--text-light);
+  font-size: 0.875rem;
   margin-bottom: 30px;
   line-height: 1.5;
 }
@@ -372,9 +377,9 @@ form {
 
 label {
   display: block;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-color);
   margin-bottom: 8px;
 }
 
@@ -387,21 +392,26 @@ label {
 input {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-color);
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 0.875rem;
   transition: all 0.3s ease;
   box-sizing: border-box;
+  color: var(--text-color);
+  background-color: #ffffff;
 }
 
 input:focus {
-  outline: none;
-  border-color: #667eea;
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+input::placeholder {
+  color: var(--text-light);
+}
+
 .input-error {
-  border-color: #dc3545;
+  border-color: var(--error-color);
   background-color: #fff8f8;
 }
 
@@ -409,8 +419,8 @@ small {
   position: absolute;
   left: 0;
   bottom: 0;
-  font-size: 11px;
-  color: #718096;
+  font-size: 0.6875rem;
+  color: var(--text-light);
   line-height: 1.4;
 }
 
@@ -418,7 +428,7 @@ small {
   position: absolute;
   left: 0;
   bottom: 0;
-  color: #dc3545;
+  color: var(--error-color);
   font-size: 0.75rem;
   line-height: 1.4;
   margin: 0;
@@ -452,20 +462,19 @@ small {
   right: 8px;
   background: none;
   border: none;
-  cursor: pointer;
   padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   transition: all 0.2s ease;
-  color: #555;
+  color: var(--text-light);
   z-index: 1;
 }
 
 .toggle-password:hover {
-  background-color: rgba(0, 0, 0, 0.08);
-  color: #333;
+  background-color: var(--bg-light);
+  color: var(--text-color);
 }
 
 .toggle-password:active {
@@ -473,7 +482,6 @@ small {
 }
 
 .toggle-password:focus {
-  outline: none;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
 }
 
@@ -484,13 +492,12 @@ small {
 
 .primary-button {
   padding: 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.3s ease;
 }
 
@@ -501,7 +508,6 @@ small {
 
 .primary-button:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .loading {
@@ -527,29 +533,39 @@ small {
 .back-link {
   display: block;
   text-align: center;
-  color: #667eea;
-  font-size: 14px;
-  text-decoration: none;
+  color: var(--primary-color);
+  font-size: 0.875rem;
   font-weight: 600;
   margin-top: 10px;
-  transition: color 0.2s;
+  transition: color 0.3s ease;
 }
 
 .back-link:hover {
-  color: #764ba2;
+  color: var(--primary-hover);
 }
 
 .success-container {
   text-align: center;
 }
 
+/* Responsive */
 @media (max-width: 640px) {
   .form-container {
     padding: 30px 20px;
   }
   
   h2 {
-    font-size: 24px;
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-container {
+    padding: 25px 15px;
+  }
+  
+  h2 {
+    font-size: 1.35rem;
   }
 }
 </style>

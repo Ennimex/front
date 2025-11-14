@@ -1,7 +1,15 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h2>Iniciar Sesión</h2>
+      <div class="logo-header">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h2>Iniciar Sesión</h2>
+      </div>
       
       <!-- Formulario de credenciales -->
       <form v-if="!requiresMFA" @submit.prevent="handleLogin">
@@ -38,22 +46,43 @@
                 @click="showPassword = !showPassword"
                 :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
               >
-                <Eye v-if="!showPassword" :size="20" />
-                <EyeOff v-else :size="20" />
+                <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
               </button>
             </div>
             <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
           </div>
         </div>
 
+        <div v-if="message" :class="['message', messageType]">
+          {{ message }}
+        </div>
+
         <button type="submit" class="btn-primary" :disabled="loading">
-          {{ loading ? 'Ingresando...' : 'Ingresar' }}
+          <span v-if="!loading">Ingresar</span>
+          <span v-else class="loading">
+            <span class="spinner"></span>
+            Ingresando...
+          </span>
         </button>
-        <br>
+
         <!-- Link de recuperación de contraseña -->
         <div class="forgot-password-container">
           <router-link to="/forgot-password" class="forgot-password-link">
             ¿Olvidaste tu contraseña?
+          </router-link>
+        </div>
+
+        <!-- Enlaces de navegación -->
+        <div class="auth-links">
+          <router-link to="/register" class="link">
+            ¿No tienes cuenta? Regístrate
           </router-link>
         </div>
       </form>
@@ -61,6 +90,11 @@
       <!-- Selección de método MFA -->
       <div v-else-if="showMFASelection" class="mfa-selection">
         <h3>Selecciona un método de verificación</h3>
+        
+        <div v-if="message" :class="['message', messageType]">
+          {{ message }}
+        </div>
+
         <div class="mfa-methods">
           <button 
             v-for="method in availableMFAMethods" 
@@ -69,9 +103,17 @@
             class="mfa-method-btn"
             :disabled="loading"
           >
-            <Mail v-if="method === 'email'" :size="24" />
-            <Phone v-if="method === 'sms'" :size="24" />
-            <ShieldCheck v-if="method === 'app'" :size="24" />
+            <svg v-if="method === 'email'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <svg v-if="method === 'sms'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+            <svg v-if="method === 'app'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
             <span v-if="method === 'email'">Correo Electrónico</span>
             <span v-if="method === 'sms'">SMS</span>
             <span v-if="method === 'app'">Aplicación Autenticador</span>
@@ -86,12 +128,11 @@
       <VerificationTimer
         v-else-if="showOTPInput && (mfaMethod === 'email' || mfaMethod === 'sms')"
         :email="getUserContact"
-        :expiration-minutes="5"
+        :expiration-minutes="10"
         @verify="handleVerifyOTP"
         @resend="handleResendOTP"
         @expired="handleOTPExpired"
       >
-        <!-- ✅ Agregar checkbox de recordar dispositivo -->
         <template #extra-content>
           <div class="remember-device-container">
             <label class="remember-device-label">
@@ -126,7 +167,6 @@
           />
         </div>
 
-        <!-- ✅ Checkbox de recordar dispositivo para app -->
         <div class="remember-device-container">
           <label class="remember-device-label">
             <input 
@@ -138,25 +178,22 @@
           </label>
         </div>
 
+        <div v-if="message" :class="['message', messageType]">
+          {{ message }}
+        </div>
+
         <button type="submit" class="btn-primary" :disabled="loading">
-          {{ loading ? 'Verificando...' : 'Verificar Código' }}
+          <span v-if="!loading">Verificar Código</span>
+          <span v-else class="loading">
+            <span class="spinner"></span>
+            Verificando...
+          </span>
         </button>
 
         <button type="button" @click="backToMethodSelection" class="btn-secondary">
           Cambiar método
         </button>
       </form>
-
-      <div v-if="message && !showOTPInput" :class="['message', messageType]">
-        {{ message }}
-      </div>
-
-      <!-- Enlaces de navegación -->
-      <div v-if="!requiresMFA" class="auth-links">
-        <router-link to="/register" class="link">
-          ¿No tienes cuenta? Regístrate
-        </router-link>
-      </div>
     </div>
   </div>
 </template>
@@ -164,7 +201,6 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Eye, EyeOff, Mail, Phone, ShieldCheck } from 'lucide-vue-next';
 import { authService } from '@/services/auth';
 import VerificationTimer from '@/components/VerificationTimer.vue';
 
@@ -184,8 +220,6 @@ const showPassword = ref(false);
 const loading = ref(false);
 const message = ref('');
 const messageType = ref('');
-
-// ✅ Estado para recordar dispositivo
 const rememberDevice = ref(false);
 
 const validateUsername = () => {
@@ -215,15 +249,6 @@ const otpCode = ref('');
 const availableMFAMethods = ref([]);
 const userContact = ref('');
 
-const mfaMethodText = computed(() => {
-  const methods = {
-    email: 'correo electrónico',
-    sms: 'teléfono',
-    app: 'aplicación de autenticación'
-  };
-  return methods[mfaMethod.value] || 'dispositivo';
-});
-
 const getUserContact = computed(() => {
   return userContact.value || 'tu dispositivo';
 });
@@ -245,48 +270,15 @@ const handleLogin = async () => {
     loading.value = true;
     message.value = '';
     
-    console.log('🔐 Iniciando login...');
-    
-    // ✅ authService.login ahora envía automáticamente el deviceId si existe
     const response = await authService.login(credentials.value);
-    console.log('📥 Respuesta del login:', response);
 
-    // ✅ Si el dispositivo es confiable, redirigir directamente
     if (!response.requiresMFA) {
-      console.log('✅ Dispositivo confiable detectado');
-      
-      // ⚠️ CRÍTICO: Guardar el token antes de redirigir
       if (response.token) {
         localStorage.setItem('token', response.token);
-        console.log('✅ Token guardado para dispositivo confiable');
-        
-        // Verificar que se guardó
-        const savedToken = localStorage.getItem('token');
-        if (savedToken) {
-          console.log('✅ Verificación: Token existe en localStorage');
-        } else {
-          console.error('❌ ERROR: Token no se guardó correctamente');
-          message.value = 'Error al guardar la sesión';
-          messageType.value = 'error';
-          return;
-        }
-      } else {
-        console.error('❌ ERROR: No se recibió token del servidor');
-        message.value = 'Error: No se recibió token del servidor';
-        messageType.value = 'error';
-        return;
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
-      
-      // Pequeño delay para asegurar que localStorage se actualice
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      console.log('🚀 Redirigiendo al dashboard...');
       await router.push('/dashboard');
       return;
-    }
-
-    if (!response.userId || !response.mfaMethods) {
-      throw new Error('Respuesta incompleta del servidor');
     }
 
     userId.value = response.userId;
@@ -295,23 +287,13 @@ const handleLogin = async () => {
     if (response.email) userContact.value = response.email;
     if (response.phone) userContact.value = response.phone;
 
-    if (!response.mfaMethods.length) {
-      throw new Error('No tienes métodos de autenticación configurados. Por favor, configura al menos uno en tu perfil.');
-    }
-
     requiresMFA.value = true;
     showMFASelection.value = true;
     message.value = 'Por favor, selecciona un método de verificación';
     messageType.value = 'info';
   } catch (error) {
-    console.error('❌ Error de inicio de sesión:', error);
-    if (error.response?.data?.message) {
-      message.value = error.response.data.message;
-    } else if (error.message) {
-      message.value = error.message;
-    } else {
-      message.value = 'Error al iniciar sesión. Por favor, intenta nuevamente.';
-    }
+    console.error('Error de inicio de sesión:', error);
+    message.value = error.response?.data?.message || error.message || 'Error al iniciar sesión';
     messageType.value = 'error';
   } finally {
     loading.value = false;
@@ -319,30 +301,21 @@ const handleLogin = async () => {
 };
 
 const selectMFAMethod = async (method) => {
-  if (!userId.value) {
-    message.value = 'Error: Sesión inválida';
-    messageType.value = 'error';
-    return;
-  }
-
   try {
     loading.value = true;
     message.value = '';
-    console.log('📤 Solicitando OTP para método:', method);
     
-    const response = await authService.requestOTP(userId.value, method);
-    console.log('📥 Respuesta de solicitud OTP:', response);
+    await authService.requestOTP(userId.value, method);
     
     mfaMethod.value = method;
     showMFASelection.value = false;
     showOTPInput.value = true;
     
     if (method === 'app') {
-      message.value = 'Por favor, ingresa el código de tu aplicación autenticador';
+      message.value = 'Ingresa el código de tu aplicación autenticador';
       messageType.value = 'info';
     }
   } catch (error) {
-    console.error('❌ Error al solicitar OTP:', error);
     message.value = error.response?.data?.message || 'Error al solicitar el código';
     messageType.value = 'error';
   } finally {
@@ -356,7 +329,7 @@ const backToMethodSelection = () => {
   otpCode.value = '';
   mfaMethod.value = '';
   message.value = '';
-  rememberDevice.value = false; // ✅ Resetear checkbox
+  rememberDevice.value = false;
 };
 
 const resetForm = () => {
@@ -369,26 +342,12 @@ const resetForm = () => {
   message.value = '';
   credentials.value = { username: '', password: '' };
   showPassword.value = false;
-  rememberDevice.value = false; // ✅ Resetear checkbox
+  rememberDevice.value = false;
 };
 
-// ✅ Manejo de verificación OTP con opción de recordar dispositivo (CORREGIDO)
 const handleVerifyOTP = async (code) => {
-  if (!userId.value || !mfaMethod.value) {
-    message.value = 'Error en la verificación: información incompleta';
-    messageType.value = 'error';
-    return;
-  }
-
   try {
     loading.value = true;
-    
-    console.log('📤 Enviando verificación OTP:', {
-      userId: userId.value,
-      method: mfaMethod.value,
-      rememberDevice: rememberDevice.value,
-      codeLength: code?.length
-    });
 
     const response = await authService.verifyOTP({
       userId: userId.value,
@@ -397,70 +356,42 @@ const handleVerifyOTP = async (code) => {
       rememberDevice: rememberDevice.value
     });
     
-    console.log('📥 Respuesta de verificación OTP:', response);
-    
     if (!response.token) {
       throw new Error('No se recibió el token de autenticación');
     }
 
-    // ✅ Verificar que el token se guardó correctamente
-    const savedToken = localStorage.getItem('token');
-    console.log('✅ Token guardado:', savedToken ? 'Sí' : 'No');
-    
-    // ✅ Verificar si se guardó el deviceId
-    if (rememberDevice.value) {
-      const savedDeviceId = localStorage.getItem('deviceId');
-      console.log('✅ DeviceId guardado:', savedDeviceId ? savedDeviceId.substring(0, 10) + '...' : 'No');
-    }
-    
-    // ✅ Pequeño delay para asegurar que todo se guardó
     await new Promise(resolve => setTimeout(resolve, 100));
-    
-    console.log('🚀 Redirigiendo al dashboard...');
     await router.push('/dashboard');
     
   } catch (error) {
-    console.error('❌ Error en la verificación OTP:', error);
-    const errorMsg = error.response?.data?.message || error.message || 'Código OTP inválido. Por favor, intenta nuevamente.';
-    
-    // Mostrar el error en la UI
+    const errorMsg = error.response?.data?.message || error.message || 'Código OTP inválido';
     message.value = errorMsg;
     messageType.value = 'error';
-    
-    // También mostrar alerta para asegurar que el usuario lo vea
     alert(errorMsg);
   } finally {
     loading.value = false;
   }
 };
 
-// Manejo de verificación OTP para la app autenticadora
 const handleVerifyOTPApp = async () => {
   if (!otpCode.value || otpCode.value.length !== 6 || !/^\d+$/.test(otpCode.value)) {
-    message.value = 'Por favor, ingresa un código válido de 6 dígitos';
+    message.value = 'Ingresa un código válido de 6 dígitos';
     messageType.value = 'error';
     return;
   }
-
   await handleVerifyOTP(otpCode.value);
 };
 
-// Reenviar código OTP
 const handleResendOTP = async () => {
   try {
-    console.log('🔄 Reenviando código OTP...');
     await authService.requestOTP(userId.value, mfaMethod.value);
-    console.log('✅ Código reenviado exitosamente');
   } catch (error) {
-    console.error('❌ Error al reenviar código:', error);
     alert('Error al reenviar el código');
   }
 };
 
-// Código OTP expirado
 const handleOTPExpired = () => {
-  console.log('⏰ El código ha expirado');
-  alert('El código ha expirado. Por favor, solicita uno nuevo.');
+  alert('El código ha expirado. Solicita uno nuevo.');
 };
 </script>
 
@@ -470,57 +401,78 @@ const handleOTPExpired = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   padding: 20px;
 }
 
 .login-card {
   background: white;
   padding: 40px;
-  border-radius: 10px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 450px;
   width: 100%;
 }
 
-h2 {
-  margin-bottom: 30px;
-  color: #333;
+.logo-header {
   text-align: center;
+  margin-bottom: 30px;
+}
+
+.logo-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: white;
+}
+
+h2, h3 {
+  color: var(--text-color);
+  text-align: center;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 1.75rem;
+  margin: 0;
 }
 
 h3 {
-  margin-bottom: 20px;
-  color: #333;
-  text-align: center;
-  font-size: 18px;
+  font-size: 1.125rem;
+  margin: 0 0 20px 0;
 }
 
 .form-group {
-  margin-bottom: 25px;
+  margin-bottom: 16px;
 }
 
 label {
   display: block;
-  margin-bottom: 5px;
-  color: #555;
-  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--text-color);
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 
 .input-wrapper {
   position: relative;
-  min-height: 46px;
-  padding-bottom: 22px;
 }
 
 input {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  font-size: 14px;
-  transition: border-color 0.3s;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
   box-sizing: border-box;
+  color: var(--text-color);
+  background-color: white;
 }
 
 .password-input-container {
@@ -538,57 +490,43 @@ input {
   right: 8px;
   background: none;
   border: none;
-  cursor: pointer;
   padding: 6px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   transition: all 0.2s ease;
-  color: #555;
-  background-color: transparent;
+  color: var(--text-light);
   z-index: 1;
 }
 
 .toggle-password:hover {
-  background-color: rgba(0, 0, 0, 0.08);
-  color: #333;
-}
-
-.toggle-password:active {
-  transform: scale(0.95);
-}
-
-.toggle-password:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
-}
-
-.toggle-password svg {
-  display: block;
-  pointer-events: none;
-  flex-shrink: 0;
+  background-color: var(--bg-light);
+  color: var(--text-color);
 }
 
 input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+input::placeholder {
+  color: var(--text-light);
 }
 
 .input-error {
-  border-color: #dc3545;
+  border-color: var(--error-color);
   background-color: #fff8f8;
 }
 
 .error-text {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  color: #dc3545;
+  display: block;
+  color: var(--error-color);
   font-size: 0.75rem;
+  margin-top: 6px;
   line-height: 1.4;
-  margin: 0;
-  padding-top: 2px;
   animation: slideDown 0.2s ease;
 }
 
@@ -603,13 +541,12 @@ input:focus {
   }
 }
 
-/* ✅ ESTILOS PARA CHECKBOX DE RECORDAR DISPOSITIVO */
 .remember-device-container {
-  margin: 20px 0;
+  margin: 16px 0 12px 0;
   padding: 12px;
-  background: #f8f9ff;
+  background: var(--bg-light);
   border-radius: 8px;
-  border: 1px solid #e0e7ff;
+  border: 1px solid var(--border-color);
 }
 
 .remember-device-label {
@@ -624,75 +561,62 @@ input:focus {
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: #667eea;
+  accent-color: var(--primary-color);
+  flex-shrink: 0;
 }
 
 .remember-device-label span {
-  color: #555;
-  font-size: 14px;
+  color: var(--text-color);
+  font-size: 0.875rem;
   font-weight: 500;
+  line-height: 1.4;
 }
 
-.remember-device-label:hover span {
-  color: #667eea;
-}
-
-/* Contenedor del enlace "¿Olvidaste tu contraseña?" */
 .forgot-password-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
-  margin-top: -10px;
+  text-align: center;
+  margin-top: 16px;
 }
 
 .forgot-password-link {
-  color: #667eea;
+  color: var(--primary-color);
   text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.forgot-password-link::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: -2px;
-  left: 0;
-  background-color: #667eea;
-  transition: width 0.3s ease;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: color 0.3s ease;
 }
 
 .forgot-password-link:hover {
-  color: #5568d3;
-}
-
-.forgot-password-link:hover::after {
-  width: 100%;
+  color: var(--primary-hover);
+  text-decoration: underline;
 }
 
 .otp-input {
   text-align: center;
-  font-size: 24px;
-  letter-spacing: 8px;
-  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: 0.5em;
+  font-weight: 700;
+  padding-left: 24px;
 }
 
 .otp-info {
-  background: #e7f3ff;
-  padding: 15px;
-  border-radius: 5px;
-  margin-bottom: 20px;
+  background: var(--bg-light);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
   text-align: center;
-  border: 1px solid #b3d9ff;
+  border: 1px solid var(--border-color);
 }
 
 .otp-info p {
   margin: 0;
-  color: #0066cc;
+  color: var(--info-color);
   font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.mfa-selection {
+  width: 100%;
 }
 
 .mfa-methods {
@@ -708,25 +632,21 @@ input:focus {
   justify-content: center;
   gap: 12px;
   padding: 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
   background: white;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
   cursor: pointer;
-  transition: all 0.3s;
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
+  transition: all 0.3s ease;
 }
 
 .mfa-method-btn:hover:not(:disabled) {
-  border-color: #667eea;
-  background: #f8f9ff;
+  border-color: var(--primary-color);
+  background: var(--bg-light);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-}
-
-.mfa-method-btn:active:not(:disabled) {
-  transform: translateY(0);
 }
 
 .mfa-method-btn:disabled {
@@ -736,29 +656,31 @@ input:focus {
 
 .btn-primary, .btn-secondary {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   border: none;
-  border-radius: 5px;
-  font-size: 16px;
+  border-radius: 10px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 }
 
 .btn-primary {
-  background: #667eea;
+  margin-bottom: 0;
+}
+
+.btn-secondary {
+  margin-top: 12px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
-  margin-bottom: 10px;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5568d3;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:disabled {
@@ -767,19 +689,43 @@ input:focus {
 }
 
 .btn-secondary {
-  background: #f0f0f0;
-  color: #333;
+  background: white;
+  color: var(--text-color);
+  border: 2px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background: #e0e0e0;
+  background: var(--bg-light);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .message {
-  margin-top: 15px;
-  padding: 12px;
-  border-radius: 5px;
+  margin: 12px 0 16px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
   text-align: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
   animation: slideIn 0.3s ease;
 }
 
@@ -795,74 +741,75 @@ input:focus {
 }
 
 .message.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: rgba(40, 167, 69, 0.1);
+  color: var(--success-color);
+  border: 1px solid var(--success-color);
 }
 
 .message.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: rgba(220, 53, 69, 0.1);
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
 }
 
 .message.info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
+  background: rgba(0, 102, 204, 0.1);
+  color: var(--info-color);
+  border: 1px solid var(--info-color);
 }
 
 .auth-links {
-  margin-top: 25px;
+  margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-color);
   text-align: center;
 }
 
 .link {
-  display: inline-block;
-  color: #667eea;
+  color: var(--primary-color);
   text-decoration: none;
-  font-weight: 500;
-  font-size: 14px;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.link::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: -2px;
-  left: 0;
-  background-color: #667eea;
-  transition: width 0.3s ease;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: color 0.3s ease;
 }
 
 .link:hover {
-  color: #5568d3;
+  color: var(--primary-hover);
+  text-decoration: underline;
 }
 
-.link:hover::after {
-  width: 100%;
+@media (max-width: 640px) {
+  .login-card {
+    padding: 30px 20px;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  .otp-input {
+    font-size: 1.25rem;
+    letter-spacing: 0.4em;
+  }
 }
 
 @media (max-width: 480px) {
   .login-card {
-    padding: 30px 20px;
-  }
-
-  .forgot-password-link {
-    font-size: 13px;
-  }
-
-  .link {
-    font-size: 13px;
+    padding: 25px 15px;
   }
   
-  .remember-device-label span {
-    font-size: 13px;
+  h2 {
+    font-size: 1.35rem;
+  }
+
+  .logo-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .otp-input {
+    font-size: 1.125rem;
+    letter-spacing: 0.3em;
   }
 }
 </style>
